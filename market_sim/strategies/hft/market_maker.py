@@ -12,9 +12,9 @@ from decimal import Decimal
 from typing import List, Dict, Optional, Tuple
 from datetime import datetime, timedelta
 import numpy as np
-from market.agents.base_agent import BaseAgent
-from core.models.base import Order, Trade, OrderSide, OrderType
-from core.utils.time_utils import utc_now
+from market_sim.market.agents.base_agent import BaseAgent
+from market_sim.core.models.base import Order, Trade, OrderSide, OrderType
+from market_sim.core.utils.time_utils import utc_now
 
 class MarketMaker(BaseAgent):
     def __init__(self, agent_id: str, initial_balance: Decimal,
@@ -88,33 +88,51 @@ class MarketMaker(BaseAgent):
     
     def should_update_orders(self, symbol: str, bids: List[tuple], asks: List[tuple]) -> bool:
         """Determine if orders should be updated based on market conditions."""
-        if not bids or not asks:
-            return True
-            
+        # Allow updates even if one side is empty to seed the book
         current_quotes = self.current_quotes[symbol]
         if not current_quotes['bid'] or not current_quotes['ask']:
             return True
             
         # Check if our orders are still at the top of the book
-        best_bid = Decimal(str(bids[0][0]))
-        best_ask = Decimal(str(asks[0][0]))
+        best_bid = Decimal(str(bids[0][0])) if bids else None
+        best_ask = Decimal(str(asks[0][0])) if asks else None
         
-        our_bid = current_quotes['bid'].price
-        our_ask = current_quotes['ask'].price
-        
-        return (our_bid != best_bid or our_ask != best_ask or 
-                utc_now() - self.last_order_update > self.update_interval)
+        our_bid = current_quotes['bid'].price if current_quotes['bid'] else None
+        our_ask = current_quotes['ask'].price if current_quotes['ask'] else None
+
+        needs_top_update = False
+        if best_bid is not None and our_bid is not None:
+            needs_top_update = needs_top_update or (our_bid != best_bid)
+        if best_ask is not None and our_ask is not None:
+            needs_top_update = needs_top_update or (our_ask != best_ask)
+
+        time_exceeded = utc_now() - self.last_order_update > self.update_interval
+        return needs_top_update or time_exceeded
     
-    def on_order_book_update(self, symbol: str, bids: List[tuple], asks: List[tuple]) -> None:
+    def on_order_book_update(self, symbol: str, bids: List[tuple], asks: List[tuple]):
         """Update quotes based on order book changes."""
-        if symbol not in self.symbols or not bids or not asks:
-            return
+        if symbol not in self.symbols:
+            return None
             
         if not self.should_update_orders(symbol, bids, asks):
-            return
+            return None
             
         # Calculate mid price
-        mid_price = (Decimal(str(bids[0][0])) + Decimal(str(asks[0][0]))) / 2
+        if bids and asks:
+            mid_price = (Decimal(str(bids[0][0])) + Decimal(str(asks[0][0]))) / 2
+        elif bids:
+            # If only bids exist, estimate mid slightly above best bid
+            mid_price = Decimal(str(bids[0][0])) * Decimal('1.001')
+        elif asks:
+            # If only asks exist, estimate mid slightly below best ask
+            mid_price = Decimal(str(asks[0][0])) * Decimal('0.999')
+        else:
+            # No market info; seed with last price or default reference
+            last_prices = self.last_prices.get(symbol, [])
+            if last_prices:
+                mid_price = last_prices[-1]
+            else:
+                mid_price = Decimal('100')
         
         # Store price for volatility calculation
         self.last_prices[symbol].append(mid_price)
@@ -146,15 +164,19 @@ class MarketMaker(BaseAgent):
             ask_size *= (1 - adjustment)
         
         # Place new orders if within position limits
+        created_orders = []
         if abs(position.quantity + bid_size) <= self.position_limit:
             bid_order = self.create_limit_order(symbol, OrderSide.BUY, bid_size, bid_price)
             self.current_quotes[symbol]['bid'] = bid_order
+            created_orders.append(bid_order)
             
         if abs(position.quantity - ask_size) <= self.position_limit:
             ask_order = self.create_limit_order(symbol, OrderSide.SELL, ask_size, ask_price)
             self.current_quotes[symbol]['ask'] = ask_order
+            created_orders.append(ask_order)
         
         self.last_order_update = utc_now()
+        return created_orders
     
     def on_trade(self, trade: Trade) -> None:
         """Handle trade updates."""

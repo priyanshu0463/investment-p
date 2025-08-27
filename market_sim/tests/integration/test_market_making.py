@@ -3,8 +3,8 @@
 import pytest
 from datetime import timedelta
 import numpy as np
-from simulation.scenarios.market_making_scenario import create_market_making_scenario
-from core.utils.time_utils import utc_now
+from market_sim.simulation.scenarios.market_making_scenario import create_market_making_scenario
+from market_sim.core.utils.time_utils import utc_now
 
 def test_market_making_scenario():
     """Test basic market making scenario execution."""

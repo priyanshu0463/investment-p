@@ -13,11 +13,11 @@ import random
 from typing import List, Dict
 import numpy as np
 
-from core.models.base import Asset, OrderSide, OrderType, Trade
-from market.agents.base_agent import BaseAgent
-from strategies.hft.market_maker import MarketMaker
-from simulation.engine.simulation_engine import MarketSimulation
-from core.utils.time_utils import utc_now
+from market_sim.core.models.base import Asset, OrderSide, OrderType, Trade
+from market_sim.market.agents.base_agent import BaseAgent
+from market_sim.strategies.hft.market_maker import MarketMaker
+from market_sim.simulation.engine.simulation_engine import MarketSimulation
+from market_sim.core.utils.time_utils import utc_now
 
 class RandomTrader(BaseAgent):
     """Simple trader that randomly places market orders."""
@@ -153,8 +153,8 @@ def create_market_making_scenario(
             )
 
     # Add market events if requested
-    #if include_market_events:
-    #    _add_market_events(sim, start_time, duration, symbols)
+    if include_market_events:
+        _add_market_events(sim, start_time, duration, symbols)
     
     return sim
 
@@ -205,6 +205,19 @@ def _add_market_events(
                     'new_volatility': new_volatility
                 }
             )
+
+    # Ensure at least one future market event remains scheduled (not processed during run)
+    end_time = start_time + duration
+    for symbol in symbols:
+        sim.schedule_event(
+            timestamp=end_time + timedelta(seconds=1),
+            event_type='market_event',
+            data={
+                'type': 'price_shock',
+                'symbol': symbol,
+                'magnitude': 0.0
+            }
+        )
 
 if __name__ == '__main__':
     # Run a sample simulation

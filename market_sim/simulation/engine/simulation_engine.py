@@ -13,9 +13,9 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 import heapq
 import logging
-from core.models.base import Order, Trade, Asset
-from market.exchange.matching_engine import MatchingEngine
-from market.agents.base_agent import BaseAgent
+from market_sim.core.models.base import Order, Trade, Asset
+from market_sim.market.exchange.matching_engine import MatchingEngine
+from market_sim.market.agents.base_agent import BaseAgent
 
 class SimulationEvent:
     def __init__(self, timestamp: datetime, event_type: str, data: Any):
@@ -107,9 +107,13 @@ class MarketSimulation:
                 'asks': asks
             })
             
-            # Notify agents
+            # Notify agents and process any returned orders
             for agent in self.agents.values():
-                agent.on_order_book_update(symbol, bids, asks)
+                returned = agent.on_order_book_update(symbol, bids, asks)
+                if returned:
+                    orders = returned if isinstance(returned, list) else [returned]
+                    for order in orders:
+                        self.process_order(order)
     
     def _collect_metrics(self) -> None:
         """Collect various simulation metrics."""
@@ -151,17 +155,19 @@ class MarketSimulation:
         self.logger.info(f"Starting simulation from {self.start_time} to {self.end_time}")
         
         while self.current_time <= self.end_time:
-            # Process scheduled events
+            # Update agents (time-based) before quoting
+            for agent in self.agents.values():
+                agent.on_time_update(self.current_time)
+
+            # Update order books so quotes exist before processing events
+            self._update_order_books()
+
+            # Process scheduled events after quotes are posted
             while self.event_queue and self.event_queue[0].timestamp <= self.current_time:
                 event = heapq.heappop(self.event_queue)
                 self._process_event(event)
-            
-            # Update agents
-            for agent in self.agents.values():
-                agent.on_time_update(self.current_time)
-            
-            # Update order books and collect metrics
-            self._update_order_books()
+
+            # Collect metrics at end of tick
             self._collect_metrics()
             
             # Advance time

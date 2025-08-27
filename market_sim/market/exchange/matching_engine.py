@@ -5,8 +5,8 @@ Matching engine for order execution.
 from typing import List, Optional, Tuple
 from decimal import Decimal
 from datetime import datetime
-from core.models.base import Order, Trade, OrderBook, OrderSide, OrderStatus, OrderType
-from core.utils.time_utils import utc_now
+from market_sim.core.models.base import Order, Trade, OrderBook, OrderSide, OrderStatus, OrderType
+from market_sim.core.utils.time_utils import utc_now
 
 class MatchingEngine:
     def __init__(self, symbol: str):
@@ -52,9 +52,10 @@ class MatchingEngine:
                 if resting_order.remaining_quantity == 0:
                     self.order_book.remove_order(resting_order)
         
-        # If order still has quantity remaining, add to book
+        # If order still has quantity remaining, reject it (do not add market orders to book)
         if order.remaining_quantity > 0:
-            self.order_book.add_order(order)
+            order.status = OrderStatus.REJECTED
+            order.updated_at = utc_now()
 
         return trades
     

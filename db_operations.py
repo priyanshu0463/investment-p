@@ -78,21 +78,24 @@ class DatabaseManager:
         """Save streak statistics to database"""
         session = self.Session()
         try:
-            stmt = insert(StreakStatistic).values(
-                ticker=ticker,
-                analysis_date=analysis_date,
-                timeframe_months=timeframe_months,
-                max_up_streak=stats['max_up_streak'],
-                max_down_streak=stats['max_down_streak'],
-                max_up_change=stats['max_up_change'],
-                max_down_change=stats['max_down_change'],
-                max_up_change_pct=stats['max_up_change_pct'],
-                max_down_change_pct=stats['max_down_change_pct'],
-                avg_up_change=stats['avg_up_change'],
-                avg_down_change=stats['avg_down_change'],
-                avg_up_change_pct=stats['avg_up_change_pct'],
-                avg_down_change_pct=stats['avg_down_change_pct']
-            )
+            # Coerce potential NumPy types to native Python types for DB compatibility
+            coerced_values = {
+                'ticker': ticker,
+                'analysis_date': analysis_date,
+                'timeframe_months': int(timeframe_months),
+                'max_up_streak': int(stats['max_up_streak']) if stats.get('max_up_streak') is not None else None,
+                'max_down_streak': int(stats['max_down_streak']) if stats.get('max_down_streak') is not None else None,
+                'max_up_change': float(stats['max_up_change']) if stats.get('max_up_change') is not None else None,
+                'max_down_change': float(stats['max_down_change']) if stats.get('max_down_change') is not None else None,
+                'max_up_change_pct': float(stats['max_up_change_pct']) if stats.get('max_up_change_pct') is not None else None,
+                'max_down_change_pct': float(stats['max_down_change_pct']) if stats.get('max_down_change_pct') is not None else None,
+                'avg_up_change': float(stats['avg_up_change']) if stats.get('avg_up_change') is not None else None,
+                'avg_down_change': float(stats['avg_down_change']) if stats.get('avg_down_change') is not None else None,
+                'avg_up_change_pct': float(stats['avg_up_change_pct']) if stats.get('avg_up_change_pct') is not None else None,
+                'avg_down_change_pct': float(stats['avg_down_change_pct']) if stats.get('avg_down_change_pct') is not None else None,
+            }
+
+            stmt = insert(StreakStatistic).values(**coerced_values)
             
             stmt = stmt.on_conflict_do_update(
                 constraint='streak_statistics_ticker_analysis_date_timeframe_months_key',

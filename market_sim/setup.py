@@ -8,6 +8,7 @@ setup(
         "": "core"
     },
     include_package_data=True,
+    python_requires=">=3.11",
     author="Torbellino Tech SL",
     author_email="juan.diez@torbellino.tech",
     description="",
@@ -15,7 +16,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://www.torbellino.tech/",
     classifiers=[
-        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.11",
         "License :: Copyright Torbellino Tech SL",
     ]
 )

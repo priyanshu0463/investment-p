@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "investment-p"
+version = "0.1.0"
+description = "Investment portfolio analysis and market simulation"
+requires-python = ">=3.11"
+authors = [
+    {name = "Torbellino Tech SL", email = "juan.diez@torbellino.tech"}
+]
+readme = "README.md"
+license = {text = "Copyright Torbellino Tech SL"}
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.2.5",
+    "pytest-asyncio>=0.15.1",
+    "black>=21.7b0",
+    "mypy>=0.910",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["market_sim*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
